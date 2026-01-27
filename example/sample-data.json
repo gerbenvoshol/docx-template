@@ -1,0 +1,11 @@
+{
+    "name": "John Doe",
+    "company": "Acme Corporation",
+    "position": "Senior Software Engineer",
+    "salary": 95000,
+    "start_date": "2024-01-15",
+    "department": "Engineering",
+    "manager": "Jane Smith",
+    "skills": ["C", "Python", "JavaScript", "Docker"],
+    "remote": "true"
+}
