@@ -48,7 +48,7 @@ jobs:
         echo "✓ All template variables were correctly replaced"
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: docx-template-render
         path: |
