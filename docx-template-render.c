@@ -2,8 +2,10 @@
  * docx-template-render.c - Generate .docx document from docx template and json data file
  *
  * This is a C implementation of the Python script docx-template-render.py
- * using libtct (https://github.com/gerbenvoshol/libtct) for templating
- * and doctxt (https://github.com/gerbenvoshol/doctxt) for DOCX handling.
+ * using:
+ * - libtct (https://github.com/gerbenvoshol/libtct) for templating
+ * - miniz (from doctxt) for ZIP/DOCX file handling
+ * - cJSON for JSON parsing
  */
 
 #include <stdio.h>
@@ -11,12 +13,32 @@
 #include <string.h>
 #include <getopt.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 
-/* Include headers from libtct and doctxt */
-#include "tct.h"
-#include "doctxt.h"
+/* Include headers from libtct for template processing */
+#include "libtct.h"
+
+/* Include miniz for ZIP handling (DOCX files are ZIP archives) */
+#include "miniz.h"
+
+/* Include cJSON for JSON parsing */
+#include "cJSON.h"
+
+/* Include txml for XML parsing */
+#include "txml.h"
 
 #define PROGRAM_NAME "docx-template-render"
+#define TEMP_DIR "/tmp/docx_template_render"
+#define MAX_PATH 4096
+
+/* Structure to hold DOCX document data */
+typedef struct {
+    mz_zip_archive zip;
+    char *document_xml;
+    size_t document_xml_len;
+} docx_document;
 
 static void
 usage(int status)
@@ -32,6 +54,7 @@ usage(int status)
         printf("  --json-data-file FILE    Input JSON data file\n");
         printf("  --generated-file FILE    Output DOCX file\n");
         printf("  --help                   Display this help and exit\n");
+        printf("\nDOCX templates should use {{ variable }} syntax for placeholders.\n");
     }
     exit(status);
 }
@@ -94,6 +117,157 @@ read_file_contents(const char *filename)
     return content;
 }
 
+/* Convert cJSON object to tct_arguments recursively */
+static tct_arguments *
+json_to_arguments(cJSON *json, tct_arguments *args)
+{
+    cJSON *item = NULL;
+    
+    if (json == NULL)
+        return args;
+    
+    /* Handle different JSON types */
+    cJSON_ArrayForEach(item, json)
+    {
+        if (item->string == NULL)
+            continue;
+            
+        if (cJSON_IsString(item))
+        {
+            tct_add_argument(args, item->string, "%s", item->valuestring);
+        }
+        else if (cJSON_IsNumber(item))
+        {
+            if (item->valuedouble == (double)item->valueint)
+                tct_add_argument(args, item->string, "%d", item->valueint);
+            else
+                tct_add_argument(args, item->string, "%.2f", item->valuedouble);
+        }
+        else if (cJSON_IsBool(item))
+        {
+            tct_add_argument(args, item->string, "%s", cJSON_IsTrue(item) ? "true" : "");
+        }
+        else if (cJSON_IsArray(item))
+        {
+            /* Add array items with the same name for iteration */
+            cJSON *array_item = NULL;
+            cJSON_ArrayForEach(array_item, item)
+            {
+                if (cJSON_IsString(array_item))
+                    tct_add_argument(args, item->string, "%s", array_item->valuestring);
+                else if (cJSON_IsNumber(array_item))
+                {
+                    if (array_item->valuedouble == (double)array_item->valueint)
+                        tct_add_argument(args, item->string, "%d", array_item->valueint);
+                    else
+                        tct_add_argument(args, item->string, "%.2f", array_item->valuedouble);
+                }
+            }
+        }
+        /* Note: Nested objects are not fully supported in this simple implementation */
+    }
+    
+    return args;
+}
+
+/* Extract document.xml from DOCX file */
+static char *
+extract_document_xml(const char *docx_path, size_t *out_len)
+{
+    mz_zip_archive zip;
+    char *xml_content = NULL;
+    size_t xml_size;
+    
+    memset(&zip, 0, sizeof(zip));
+    
+    if (!mz_zip_reader_init_file(&zip, docx_path, 0))
+    {
+        fprintf(stderr, "Error: Failed to open DOCX file as ZIP archive\n");
+        return NULL;
+    }
+    
+    /* Extract word/document.xml */
+    xml_content = (char *)mz_zip_reader_extract_file_to_heap(&zip, "word/document.xml", 
+                                                               &xml_size, 0);
+    if (xml_content == NULL)
+    {
+        fprintf(stderr, "Error: Failed to extract document.xml from DOCX\n");
+        mz_zip_reader_end(&zip);
+        return NULL;
+    }
+    
+    mz_zip_reader_end(&zip);
+    
+    if (out_len != NULL)
+        *out_len = xml_size;
+    
+    return xml_content;
+}
+
+/* Create a new DOCX file by copying template and replacing document.xml */
+static int
+create_docx_with_content(const char *template_path, const char *output_path, 
+                         const char *new_document_xml, size_t xml_len)
+{
+    mz_zip_archive src_zip, dst_zip;
+    int i, n, ret = -1;
+    
+    memset(&src_zip, 0, sizeof(src_zip));
+    memset(&dst_zip, 0, sizeof(dst_zip));
+    
+    /* Open source DOCX */
+    if (!mz_zip_reader_init_file(&src_zip, template_path, 0))
+    {
+        fprintf(stderr, "Error: Failed to open template DOCX file\n");
+        return -1;
+    }
+    
+    /* Create destination DOCX */
+    if (!mz_zip_writer_init_file(&dst_zip, output_path, 0))
+    {
+        fprintf(stderr, "Error: Failed to create output DOCX file\n");
+        mz_zip_reader_end(&src_zip);
+        return -1;
+    }
+    
+    /* Copy all files from source except document.xml */
+    n = mz_zip_reader_get_num_files(&src_zip);
+    for (i = 0; i < n; i++)
+    {
+        mz_zip_archive_file_stat file_stat;
+        if (!mz_zip_reader_file_stat(&src_zip, i, &file_stat))
+            continue;
+        
+        /* Skip document.xml - we'll add it separately */
+        if (strcmp(file_stat.m_filename, "word/document.xml") == 0)
+            continue;
+        
+        /* Copy file from source to destination */
+        if (!mz_zip_writer_add_from_zip_reader(&dst_zip, &src_zip, i))
+        {
+            fprintf(stderr, "Error: Failed to copy %s\n", file_stat.m_filename);
+            goto cleanup;
+        }
+    }
+    
+    /* Add the new document.xml */
+    if (!mz_zip_writer_add_mem(&dst_zip, "word/document.xml", 
+                                new_document_xml, xml_len, MZ_DEFAULT_COMPRESSION))
+    {
+        fprintf(stderr, "Error: Failed to add document.xml to output\n");
+        goto cleanup;
+    }
+    
+    ret = 0;
+    
+cleanup:
+    mz_zip_writer_finalize_archive(&dst_zip);
+    mz_zip_writer_end(&dst_zip);
+    mz_zip_reader_end(&src_zip);
+    
+    return ret;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -101,6 +275,11 @@ main(int argc, char **argv)
     const char *json_data_file = NULL;
     const char *generated_file = NULL;
     char *json_data = NULL;
+    char *document_xml = NULL;
+    char *rendered_xml = NULL;
+    size_t xml_len;
+    cJSON *json_root = NULL;
+    tct_arguments *args = NULL;
     int c;
     int ret = EXIT_FAILURE;
 
@@ -158,38 +337,63 @@ main(int argc, char **argv)
         goto cleanup;
     }
 
-    /* Load DOCX template */
-    doctxt_t *doc = doctxt_open(template_file);
-    if (doc == NULL)
-    {
-        fprintf(stderr, "Error: Failed to open DOCX template file '%s'\n", template_file);
-        goto cleanup;
-    }
-
     /* Parse JSON data */
-    tct_value_t *data = tct_parse_json(json_data);
-    if (data == NULL)
+    json_root = cJSON_Parse(json_data);
+    if (json_root == NULL)
     {
-        fprintf(stderr, "Error: Failed to parse JSON data\n");
-        doctxt_close(doc);
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL)
+        {
+            fprintf(stderr, "Error: Failed to parse JSON before: %s\n", error_ptr);
+        }
+        else
+        {
+            fprintf(stderr, "Error: Failed to parse JSON data\n");
+        }
         goto cleanup;
     }
 
-    /* Render template with JSON data */
-    if (doctxt_render_template(doc, data) != 0)
+    /* Convert JSON to template arguments */
+    args = json_to_arguments(json_root, args);
+    if (args == NULL)
+    {
+        fprintf(stderr, "Warning: No arguments extracted from JSON\n");
+        /* Continue anyway - empty arguments is valid */
+    }
+
+    /* Extract document.xml from template DOCX */
+    document_xml = extract_document_xml(template_file, &xml_len);
+    if (document_xml == NULL)
+    {
+        fprintf(stderr, "Error: Failed to extract document.xml from template\n");
+        goto cleanup;
+    }
+
+    /* Null-terminate the XML string */
+    char *xml_str = (char *)malloc(xml_len + 1);
+    if (xml_str == NULL)
+    {
+        fprintf(stderr, "Error: Failed to allocate memory for XML\n");
+        goto cleanup;
+    }
+    memcpy(xml_str, document_xml, xml_len);
+    xml_str[xml_len] = '\0';
+    free(document_xml);
+    document_xml = xml_str;
+
+    /* Render template with arguments */
+    rendered_xml = tct_render(document_xml, args);
+    if (rendered_xml == NULL)
     {
         fprintf(stderr, "Error: Failed to render template\n");
-        tct_value_free(data);
-        doctxt_close(doc);
         goto cleanup;
     }
 
-    /* Save the generated document */
-    if (doctxt_save(doc, generated_file) != 0)
+    /* Create output DOCX with rendered content */
+    if (create_docx_with_content(template_file, generated_file, 
+                                 rendered_xml, strlen(rendered_xml)) != 0)
     {
-        fprintf(stderr, "Error: Failed to save generated file '%s'\n", generated_file);
-        tct_value_free(data);
-        doctxt_close(doc);
+        fprintf(stderr, "Error: Failed to create output DOCX file\n");
         goto cleanup;
     }
 
@@ -198,13 +402,17 @@ main(int argc, char **argv)
            generated_file, template_file, json_data_file);
     ret = EXIT_SUCCESS;
 
-    /* Cleanup */
-    tct_value_free(data);
-    doctxt_close(doc);
-
 cleanup:
     if (json_data != NULL)
         free(json_data);
+    if (json_root != NULL)
+        cJSON_Delete(json_root);
+    if (args != NULL)
+        tct_free_argument(args);
+    if (document_xml != NULL)
+        free(document_xml);
+    if (rendered_xml != NULL)
+        free(rendered_xml);
 
     return ret;
 }

@@ -19,8 +19,6 @@ RUN locale-gen en_US.UTF-8 \
         make \
         git \
         cmake \
-        libzip-dev \
-        libxml2-dev \
         ca-certificates \
         --no-install-recommends
 
@@ -32,18 +30,16 @@ RUN cd /tmp \
     && make install \
     && ldconfig
 
-# Clone and build doctxt
-RUN cd /tmp \
-    && git clone https://github.com/gerbenvoshol/doctxt.git \
-    && cd doctxt \
-    && make \
-    && make install \
-    && ldconfig
-
-# Copy and build the C program
+# Copy source files for the C program
 COPY Makefile /tmp/docx-template-render/Makefile
 COPY docx-template-render.c /tmp/docx-template-render/docx-template-render.c
+COPY cJSON.c /tmp/docx-template-render/cJSON.c
+COPY cJSON.h /tmp/docx-template-render/cJSON.h
+COPY miniz.c /tmp/docx-template-render/miniz.c
+COPY miniz.h /tmp/docx-template-render/miniz.h
+COPY txml.h /tmp/docx-template-render/txml.h
 
+# Build and install the C program
 RUN cd /tmp/docx-template-render \
     && make \
     && make install
