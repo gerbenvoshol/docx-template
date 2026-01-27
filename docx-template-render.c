@@ -119,12 +119,13 @@ read_file_contents(const char *filename)
 
 /* Convert cJSON object to tct_arguments recursively */
 static tct_arguments *
-json_to_arguments(cJSON *json, tct_arguments *args)
+json_to_arguments(cJSON *json)
 {
     cJSON *item = NULL;
+    tct_arguments *args = NULL;
     
     if (json == NULL)
-        return args;
+        return NULL;
     
     /* Handle different JSON types */
     cJSON_ArrayForEach(item, json)
@@ -364,12 +365,8 @@ main(int argc, char **argv)
     }
 
     /* Convert JSON to template arguments */
-    args = json_to_arguments(json_root, args);
-    if (args == NULL)
-    {
-        fprintf(stderr, "Warning: No arguments extracted from JSON\n");
-        /* Continue anyway - empty arguments is valid */
-    }
+    args = json_to_arguments(json_root);
+    /* Note: args can be NULL for empty JSON, which is valid */
 
     /* Extract document.xml from template DOCX */
     document_xml = extract_document_xml(template_file, &xml_len);
