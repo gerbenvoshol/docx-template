@@ -139,9 +139,13 @@ json_to_arguments(cJSON *json, tct_arguments *args)
         else if (cJSON_IsNumber(item))
         {
             if (item->valuedouble == (double)item->valueint)
+            {
                 tct_add_argument(args, item->string, "%d", item->valueint);
+            }
             else
+            {
                 tct_add_argument(args, item->string, "%.2f", item->valuedouble);
+            }
         }
         else if (cJSON_IsBool(item))
         {
@@ -154,13 +158,19 @@ json_to_arguments(cJSON *json, tct_arguments *args)
             cJSON_ArrayForEach(array_item, item)
             {
                 if (cJSON_IsString(array_item))
+                {
                     tct_add_argument(args, item->string, "%s", array_item->valuestring);
+                }
                 else if (cJSON_IsNumber(array_item))
                 {
                     if (array_item->valuedouble == (double)array_item->valueint)
+                    {
                         tct_add_argument(args, item->string, "%d", array_item->valueint);
+                    }
                     else
+                    {
                         tct_add_argument(args, item->string, "%.2f", array_item->valuedouble);
+                    }
                 }
             }
         }
