@@ -15,8 +15,8 @@ This implementation creates a pure C program that replicates the functionality o
    - Template rendering integration
    - File I/O operations
 
-2. **Dependencies**
-   - **libtct** (external): Template engine for variable substitution and control structures
+2. **Dependencies** (All Included)
+   - **libtct** (included): Template engine for variable substitution and control structures
    - **cJSON** (included): JSON parsing library
    - **miniz** (included): ZIP file handling (DOCX files are ZIP archives)
    - **txml.h** (included): XML parsing header from doctxt
@@ -122,8 +122,15 @@ Potential improvements:
 ## Build Requirements
 
 - GCC or compatible C compiler
-- libtct library (https://github.com/gerbenvoshol/libtct)
 - Standard C library with math support
+- All dependencies are included in the repository
+
+## CI/CD
+
+The repository includes GitHub Actions workflows for continuous integration:
+- Automated building on push and pull requests
+- Example test execution
+- Output verification to ensure template rendering works correctly
 
 ## Documentation
 
@@ -140,10 +147,12 @@ Potential improvements:
 - `Makefile` - Build system
 - `Dockerfile.c` - Docker build file for C version
 - `BUILD.md` - Build documentation
+- `libtct.c`, `libtct.h` - Template rendering library (from libtct)
 - `cJSON.c`, `cJSON.h` - JSON library
 - `miniz.c`, `miniz.h` - ZIP library
 - `txml.h` - XML parsing header
 - `example/` - Example files directory
+- `.github/workflows/ci.yml` - CI/CD pipeline
 
 ### Modified Files
 
@@ -152,4 +161,4 @@ Potential improvements:
 
 ## Conclusion
 
-The C implementation successfully replicates the core functionality of the Python script while offering better performance and reduced dependencies. It uses proven libraries (libtct, cJSON, miniz) and follows C best practices for memory management and error handling.
+The C implementation successfully replicates the core functionality of the Python script while offering better performance and reduced dependencies. All required libraries (libtct, cJSON, miniz) are included in the repository, making it easy to build and deploy. The implementation follows C best practices for memory management and error handling, and includes comprehensive CI/CD testing to ensure reliability.

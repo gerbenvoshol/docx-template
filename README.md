@@ -1,11 +1,14 @@
 # python-docx-template-dockerfiles
+
+[![CI](https://github.com/gerbenvoshol/python-docx-template-dockerfiles/actions/workflows/ci.yml/badge.svg)](https://github.com/gerbenvoshol/python-docx-template-dockerfiles/actions/workflows/ci.yml)
+
 Dockerfiles for building images with LibreOffice and python-docx-template
 
 ## Overview
 
 This repository contains both Python and C implementations of a DOCX template renderer:
 - **Python version**: Uses `python-docx-template` library
-- **C version**: Pure C implementation using [libtct](https://github.com/gerbenvoshol/libtct) and [doctxt](https://github.com/gerbenvoshol/doctxt)
+- **C version**: Pure C implementation with all dependencies included
 
 ## Python Version
 
@@ -19,6 +22,12 @@ soffice --convert-to pdf result.docx
 ```
 
 ## C Version
+
+The C version includes all dependencies (no external libraries required):
+- libtct (template rendering, included)
+- cJSON (JSON parsing, included)
+- miniz (ZIP/DOCX handling, included)
+- txml.h (XML parsing, included)
 
 ### Building
 
@@ -52,7 +61,11 @@ soffice --convert-to pdf result.docx
 ## Requirements
 
 ### C Version Dependencies
-- libtct: Template rendering library
-- doctxt: DOCX file manipulation library
-- libzip: ZIP file handling (required by doctxt)
-- libxml2: XML parsing (required by doctxt)
+
+All dependencies are included in the repository:
+- **libtct**: Template rendering library (from https://github.com/gerbenvoshol/libtct)
+- **cJSON**: JSON parsing library
+- **miniz**: ZIP file handling for DOCX files
+- **txml.h**: XML parsing utilities
+
+No external installation required - just run `make` to build!

@@ -4,25 +4,15 @@
 
 The C program requires:
 - GCC compiler (or compatible C compiler)
-- libtct library (https://github.com/gerbenvoshol/libtct)
 - Standard C library with math support
 
 The following dependencies are included in this repository:
+- libtct (for template rendering)
 - cJSON (for JSON parsing)
 - miniz (for ZIP/DOCX file handling)
 - txml.h (for XML parsing, from doctxt repository)
 
 ## Building
-
-### Install libtct
-
-```bash
-cd /tmp
-git clone https://github.com/gerbenvoshol/libtct.git
-cd libtct
-make
-sudo make install
-```
 
 ### Build docx-template-render
 
@@ -117,9 +107,9 @@ The C version has the following differences compared to the Python version:
 
 ### Build Errors
 
-If you get "libtct not found" errors:
-- Ensure libtct is installed in `/usr/local/lib` and `/usr/local/include`
-- Run `sudo ldconfig` after installing libtct
+If you get compilation errors:
+- Ensure you have GCC or a compatible C compiler installed
+- Check that all source files are present in the directory
 
 ### Runtime Errors
 

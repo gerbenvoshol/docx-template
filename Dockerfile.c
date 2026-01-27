@@ -17,18 +17,8 @@ RUN locale-gen en_US.UTF-8 \
         build-essential \
         gcc \
         make \
-        git \
-        cmake \
         ca-certificates \
         --no-install-recommends
-
-# Clone and build libtct
-RUN cd /tmp \
-    && git clone https://github.com/gerbenvoshol/libtct.git \
-    && cd libtct \
-    && make \
-    && make install \
-    && ldconfig
 
 # Copy source files for the C program
 COPY Makefile /tmp/docx-template-render/Makefile
@@ -38,6 +28,8 @@ COPY cJSON.h /tmp/docx-template-render/cJSON.h
 COPY miniz.c /tmp/docx-template-render/miniz.c
 COPY miniz.h /tmp/docx-template-render/miniz.h
 COPY txml.h /tmp/docx-template-render/txml.h
+COPY libtct.c /tmp/docx-template-render/libtct.c
+COPY libtct.h /tmp/docx-template-render/libtct.h
 
 # Build and install the C program
 RUN cd /tmp/docx-template-render \

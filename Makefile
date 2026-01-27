@@ -6,23 +6,20 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c11
 LDFLAGS =
-LIBS = -ltct -lm
+LIBS = -lm
 
 # Include paths
-INCLUDES = -I/usr/local/include -I/usr/include -I.
-
-# Library paths
-LIBPATHS = -L/usr/local/lib -L/usr/lib
+INCLUDES = -I.
 
 TARGET = docx-template-render
-SOURCES = docx-template-render.c miniz.c cJSON.c
+SOURCES = docx-template-render.c miniz.c cJSON.c libtct.c
 
 .PHONY: all clean install example
 
 all: $(TARGET)
 
 $(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) $(INCLUDES) $(LIBPATHS) -o $(TARGET) $(SOURCES) $(LIBS) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(SOURCES) $(LIBS) $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET) *.o
