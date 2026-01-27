@@ -5,7 +5,7 @@
  * using:
  * - libtct (https://github.com/gerbenvoshol/libtct) for templating
  * - miniz (from doctxt) for ZIP/DOCX file handling
- * - cJSON for JSON parsing
+ * - mjson for JSON parsing
  */
 
 #include <stdio.h>
@@ -23,8 +23,8 @@
 /* Include miniz for ZIP handling (DOCX files are ZIP archives) */
 #include "miniz.h"
 
-/* Include cJSON for JSON parsing */
-#include "cJSON.h"
+/* Include mjson for JSON parsing */
+#include "mjson.h"
 
 /* Include txml for XML parsing */
 #include "txml.h"
@@ -117,60 +117,128 @@ read_file_contents(const char *filename)
     return content;
 }
 
-/* Convert cJSON object to tct_arguments recursively */
+/* Convert JSON object to tct_arguments using mjson */
 static tct_arguments *
-json_to_arguments(cJSON *json)
+json_to_arguments(const char *json, int json_len)
 {
-    cJSON *item = NULL;
     tct_arguments *args = NULL;
+    int koff, klen, voff, vlen, vtype, off;
     
-    if (json == NULL)
+    if (json == NULL || json_len <= 0)
         return NULL;
     
-    /* Handle different JSON types */
-    cJSON_ArrayForEach(item, json)
+    /* Iterate through JSON object properties using mjson_next */
+    for (off = 0; (off = mjson_next(json, json_len, off, &koff, &klen, &voff, &vlen, &vtype)) != 0; )
     {
-        if (item->string == NULL)
+        /* Extract key name */
+        char key[256];
+        if (klen >= (int)sizeof(key))
             continue;
+        
+        /* Get the key string (remove quotes if present) */
+        if (json[koff] == '"' && klen >= 2)
+        {
+            memcpy(key, json + koff + 1, klen - 2);
+            key[klen - 2] = '\0';
+        }
+        else
+        {
+            memcpy(key, json + koff, klen);
+            key[klen] = '\0';
+        }
+        
+        /* Handle different JSON value types */
+        if (vtype == MJSON_TOK_STRING)
+        {
+            /* String value - extract without quotes */
+            char value[1024];
+            char path[512];
+            snprintf(path, sizeof(path), "$.%s", key);
             
-        if (cJSON_IsString(item))
-        {
-            tct_add_argument(args, item->string, "%s", item->valuestring);
-        }
-        else if (cJSON_IsNumber(item))
-        {
-            if (item->valuedouble == (double)item->valueint)
+            if (mjson_get_string(json, json_len, path, value, sizeof(value)) > 0)
             {
-                tct_add_argument(args, item->string, "%d", item->valueint);
-            }
-            else
-            {
-                tct_add_argument(args, item->string, "%.2f", item->valuedouble);
+                tct_add_argument(args, key, "%s", value);
             }
         }
-        else if (cJSON_IsBool(item))
+        else if (vtype == MJSON_TOK_NUMBER)
         {
-            tct_add_argument(args, item->string, "%s", cJSON_IsTrue(item) ? "true" : "");
-        }
-        else if (cJSON_IsArray(item))
-        {
-            /* Add array items with the same name for iteration */
-            cJSON *array_item = NULL;
-            cJSON_ArrayForEach(array_item, item)
+            /* Number value */
+            double num;
+            char path[512];
+            snprintf(path, sizeof(path), "$.%s", key);
+            if (mjson_get_number(json, json_len, path, &num) != 0)
             {
-                if (cJSON_IsString(array_item))
+                /* Check if it's an integer */
+                if (num == (long)num)
                 {
-                    tct_add_argument(args, item->string, "%s", array_item->valuestring);
+                    tct_add_argument(args, key, "%ld", (long)num);
                 }
-                else if (cJSON_IsNumber(array_item))
+                else
                 {
-                    if (array_item->valuedouble == (double)array_item->valueint)
+                    tct_add_argument(args, key, "%.2f", num);
+                }
+            }
+        }
+        else if (vtype == MJSON_TOK_TRUE || vtype == MJSON_TOK_FALSE)
+        {
+            /* Boolean value */
+            int bval;
+            char path[512];
+            snprintf(path, sizeof(path), "$.%s", key);
+            if (mjson_get_bool(json, json_len, path, &bval) != 0)
+            {
+                tct_add_argument(args, key, "%s", bval ? "true" : "");
+            }
+        }
+        else if (vtype == MJSON_TOK_ARRAY)
+        {
+            /* Array value - iterate through array elements */
+            const char *array_start;
+            int array_len;
+            char path[512];
+            snprintf(path, sizeof(path), "$.%s", key);
+            
+            if (mjson_find(json, json_len, path, &array_start, &array_len) != 0)
+            {
+                int aoff, akoff, aklen, avoff, avlen, avtype;
+                
+                /* Iterate through array elements */
+                for (aoff = 0; (aoff = mjson_next(array_start, array_len, aoff, 
+                                                   &akoff, &aklen, &avoff, &avlen, &avtype)) != 0; )
+                {
+                    if (avtype == MJSON_TOK_STRING)
                     {
-                        tct_add_argument(args, item->string, "%d", array_item->valueint);
+                        /* Extract string from array (without quotes) */
+                        if (avlen > 2 && array_start[avoff] == '"')
+                        {
+                            char str_val[1024];
+                            int copy_len = avlen - 2;
+                            if (copy_len >= (int)sizeof(str_val))
+                                copy_len = sizeof(str_val) - 1;
+                            memcpy(str_val, array_start + avoff + 1, copy_len);
+                            str_val[copy_len] = '\0';
+                            tct_add_argument(args, key, "%s", str_val);
+                        }
                     }
-                    else
+                    else if (avtype == MJSON_TOK_NUMBER)
                     {
-                        tct_add_argument(args, item->string, "%.2f", array_item->valuedouble);
+                        /* Extract number from array */
+                        char num_str[64];
+                        if (avlen < (int)sizeof(num_str))
+                        {
+                            memcpy(num_str, array_start + avoff, avlen);
+                            num_str[avlen] = '\0';
+                            double num = atof(num_str);
+                            
+                            if (num == (long)num)
+                            {
+                                tct_add_argument(args, key, "%ld", (long)num);
+                            }
+                            else
+                            {
+                                tct_add_argument(args, key, "%.2f", num);
+                            }
+                        }
                     }
                 }
             }
@@ -289,7 +357,6 @@ main(int argc, char **argv)
     char *document_xml = NULL;
     char *rendered_xml = NULL;
     size_t xml_len;
-    cJSON *json_root = NULL;
     tct_arguments *args = NULL;
     int c;
     int ret = EXIT_FAILURE;
@@ -348,24 +415,16 @@ main(int argc, char **argv)
         goto cleanup;
     }
 
-    /* Parse JSON data */
-    json_root = cJSON_Parse(json_data);
-    if (json_root == NULL)
+    /* Validate JSON data with mjson */
+    int json_len = strlen(json_data);
+    if (mjson(json_data, json_len, NULL, NULL) < 0)
     {
-        const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL)
-        {
-            fprintf(stderr, "Error: Failed to parse JSON before: %s\n", error_ptr);
-        }
-        else
-        {
-            fprintf(stderr, "Error: Failed to parse JSON data\n");
-        }
+        fprintf(stderr, "Error: Failed to parse JSON data - invalid JSON format\n");
         goto cleanup;
     }
 
     /* Convert JSON to template arguments */
-    args = json_to_arguments(json_root);
+    args = json_to_arguments(json_data, json_len);
     /* Note: args can be NULL for empty JSON, which is valid */
 
     /* Extract document.xml from template DOCX */
@@ -412,8 +471,6 @@ main(int argc, char **argv)
 cleanup:
     if (json_data != NULL)
         free(json_data);
-    if (json_root != NULL)
-        cJSON_Delete(json_root);
     if (args != NULL)
         tct_free_argument(args);
     if (document_xml != NULL)

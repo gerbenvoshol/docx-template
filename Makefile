@@ -12,7 +12,7 @@ LIBS = -lm
 INCLUDES = -I.
 
 TARGET = docx-template-render
-SOURCES = docx-template-render.c miniz.c cJSON.c libtct.c
+SOURCES = docx-template-render.c miniz.c mjson.c libtct.c
 
 .PHONY: all clean install example
 

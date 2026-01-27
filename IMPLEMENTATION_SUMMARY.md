@@ -17,14 +17,14 @@ This implementation creates a pure C program that replicates the functionality o
 
 2. **Dependencies** (All Included)
    - **libtct** (included): Template engine for variable substitution and control structures
-   - **cJSON** (included): JSON parsing library
+   - **mjson** (included): JSON parsing library - lightweight streaming parser
    - **miniz** (included): ZIP file handling (DOCX files are ZIP archives)
    - **txml.h** (included): XML parsing header from doctxt
 
 ### Data Flow
 
 ```
-JSON Data File → cJSON Parser → tct_arguments
+JSON Data File → mjson Parser → tct_arguments
                                        ↓
 Template DOCX → Extract document.xml → libtct Renderer → Rendered XML
                                                               ↓
@@ -148,7 +148,7 @@ The repository includes GitHub Actions workflows for continuous integration:
 - `Dockerfile.c` - Docker build file for C version
 - `BUILD.md` - Build documentation
 - `libtct.c`, `libtct.h` - Template rendering library (from libtct)
-- `cJSON.c`, `cJSON.h` - JSON library
+- `mjson.c`, `mjson.h` - JSON parsing library (from mjson)
 - `miniz.c`, `miniz.h` - ZIP library
 - `txml.h` - XML parsing header
 - `example/` - Example files directory
@@ -161,4 +161,4 @@ The repository includes GitHub Actions workflows for continuous integration:
 
 ## Conclusion
 
-The C implementation successfully replicates the core functionality of the Python script while offering better performance and reduced dependencies. All required libraries (libtct, cJSON, miniz) are included in the repository, making it easy to build and deploy. The implementation follows C best practices for memory management and error handling, and includes comprehensive CI/CD testing to ensure reliability.
+The C implementation successfully replicates the core functionality of the Python script while offering better performance and reduced dependencies. All required libraries (libtct, mjson, miniz) are included in the repository, making it easy to build and deploy. The mjson library provides a lightweight, streaming JSON parser with no memory allocations, making it ideal for embedded and resource-constrained environments. The implementation follows C best practices for memory management and error handling, and includes comprehensive CI/CD testing to ensure reliability.

@@ -25,7 +25,7 @@ soffice --convert-to pdf result.docx
 
 The C version includes all dependencies (no external libraries required):
 - libtct (template rendering, included)
-- cJSON (JSON parsing, included)
+- mjson (JSON parsing, included)
 - miniz (ZIP/DOCX handling, included)
 - txml.h (XML parsing, included)
 
@@ -64,7 +64,7 @@ soffice --convert-to pdf result.docx
 
 All dependencies are included in the repository:
 - **libtct**: Template rendering library (from https://github.com/gerbenvoshol/libtct)
-- **cJSON**: JSON parsing library
+- **mjson**: JSON parsing library (from https://github.com/gerbenvoshol/mjson)
 - **miniz**: ZIP file handling for DOCX files
 - **txml.h**: XML parsing utilities
 

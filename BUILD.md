@@ -8,7 +8,7 @@ The C program requires:
 
 The following dependencies are included in this repository:
 - libtct (for template rendering)
-- cJSON (for JSON parsing)
+- mjson (for JSON parsing)
 - miniz (for ZIP/DOCX file handling)
 - txml.h (for XML parsing, from doctxt repository)
 

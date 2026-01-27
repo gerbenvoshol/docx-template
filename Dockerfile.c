@@ -23,8 +23,8 @@ RUN locale-gen en_US.UTF-8 \
 # Copy source files for the C program
 COPY Makefile /tmp/docx-template-render/Makefile
 COPY docx-template-render.c /tmp/docx-template-render/docx-template-render.c
-COPY cJSON.c /tmp/docx-template-render/cJSON.c
-COPY cJSON.h /tmp/docx-template-render/cJSON.h
+COPY mjson.c /tmp/docx-template-render/mjson.c
+COPY mjson.h /tmp/docx-template-render/mjson.h
 COPY miniz.c /tmp/docx-template-render/miniz.c
 COPY miniz.h /tmp/docx-template-render/miniz.h
 COPY txml.h /tmp/docx-template-render/txml.h
