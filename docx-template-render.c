@@ -47,13 +47,13 @@ usage(int status)
         fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAM_NAME);
     else
     {
-        printf("Usage: %s --template-file FILE --json-data-file FILE --generated-file FILE\n", PROGRAM_NAME);
+        printf("Usage: %s [OPTIONS]\n", PROGRAM_NAME);
         printf("Generate .docx document from docx template and json data file\n\n");
         printf("Options:\n");
-        printf("  --template-file FILE     Input DOCX template file\n");
-        printf("  --json-data-file FILE    Input JSON data file\n");
-        printf("  --generated-file FILE    Output DOCX file\n");
-        printf("  --help                   Display this help and exit\n");
+        printf("  -t, --template-file FILE     Input DOCX template file\n");
+        printf("  -j, --json-data-file FILE    Input JSON data file\n");
+        printf("  -g, --generated-file FILE    Output DOCX file\n");
+        printf("  -h, --help                   Display this help and exit\n");
         printf("\nDOCX templates should use {{ variable }} syntax for placeholders.\n");
     }
     exit(status);
@@ -117,134 +117,167 @@ read_file_contents(const char *filename)
     return content;
 }
 
-/* Convert JSON object to tct_arguments using mjson */
-static tct_arguments *
-json_to_arguments(const char *json, int json_len)
+/* Forward declaration for recursive call */
+static void process_json_object(tct_arguments **args, const char *json, int json_len, 
+                                 const char *prefix);
+
+/* Process a JSON value and add it to arguments with the given key */
+static void
+process_json_value(tct_arguments **args, const char *json, int json_len,
+                   const char *key, const char *value_start, int vlen, int vtype)
 {
-    tct_arguments *args = NULL;
+    if (vtype == MJSON_TOK_STRING)
+    {
+        /* String value - extract without quotes */
+        if (vlen > 2 && value_start[0] == '"')
+        {
+            char value[1024];
+            int copy_len = vlen - 2;
+            if (copy_len >= (int)sizeof(value))
+                copy_len = sizeof(value) - 1;
+            memcpy(value, value_start + 1, copy_len);
+            value[copy_len] = '\0';
+            tct_add_argument(*args, (char *)key, "%s", value);
+        }
+    }
+    else if (vtype == MJSON_TOK_NUMBER)
+    {
+        /* Number value */
+        char num_str[64];
+        if (vlen < (int)sizeof(num_str))
+        {
+            memcpy(num_str, value_start, vlen);
+            num_str[vlen] = '\0';
+            double num = atof(num_str);
+            
+            /* Check if it's an integer */
+            if (num == (long)num)
+            {
+                tct_add_argument(*args, (char *)key, "%ld", (long)num);
+            }
+            else
+            {
+                tct_add_argument(*args, (char *)key, "%.2f", num);
+            }
+        }
+    }
+    else if (vtype == MJSON_TOK_TRUE)
+    {
+        /* Boolean true value */
+        tct_add_argument(*args, (char *)key, "%s", "true");
+    }
+    else if (vtype == MJSON_TOK_FALSE)
+    {
+        /* Boolean false value - use empty string */
+        tct_add_argument(*args, (char *)key, "%s", "");
+    }
+    else if (vtype == MJSON_TOK_ARRAY)
+    {
+        /* Array value - iterate through array elements */
+        int aoff, akoff, aklen, avoff, avlen, avtype;
+        
+        /* Iterate through array elements */
+        for (aoff = 0; (aoff = mjson_next(value_start, vlen, aoff, 
+                                           &akoff, &aklen, &avoff, &avlen, &avtype)) != 0; )
+        {
+            if (avtype == MJSON_TOK_STRING)
+            {
+                /* Extract string from array (without quotes) */
+                if (avlen > 2 && value_start[avoff] == '"')
+                {
+                    char str_val[1024];
+                    int copy_len = avlen - 2;
+                    if (copy_len >= (int)sizeof(str_val))
+                        copy_len = sizeof(str_val) - 1;
+                    memcpy(str_val, value_start + avoff + 1, copy_len);
+                    str_val[copy_len] = '\0';
+                    tct_add_argument(*args, (char *)key, "%s", str_val);
+                }
+            }
+            else if (avtype == MJSON_TOK_NUMBER)
+            {
+                /* Extract number from array */
+                char num_str[64];
+                if (avlen < (int)sizeof(num_str))
+                {
+                    memcpy(num_str, value_start + avoff, avlen);
+                    num_str[avlen] = '\0';
+                    double num = atof(num_str);
+                    
+                    if (num == (long)num)
+                    {
+                        tct_add_argument(*args, (char *)key, "%ld", (long)num);
+                    }
+                    else
+                    {
+                        tct_add_argument(*args, (char *)key, "%.2f", num);
+                    }
+                }
+            }
+        }
+    }
+    else if (vtype == MJSON_TOK_OBJECT)
+    {
+        /* Nested object - recursively process with dotted prefix */
+        process_json_object(args, value_start, vlen, key);
+    }
+}
+
+/* Recursively process JSON object and add all properties to arguments */
+static void
+process_json_object(tct_arguments **args, const char *json, int json_len, 
+                    const char *prefix)
+{
     int koff, klen, voff, vlen, vtype, off;
-    
-    if (json == NULL || json_len <= 0)
-        return NULL;
     
     /* Iterate through JSON object properties using mjson_next */
     for (off = 0; (off = mjson_next(json, json_len, off, &koff, &klen, &voff, &vlen, &vtype)) != 0; )
     {
         /* Extract key name */
-        char key[256];
-        if (klen >= (int)sizeof(key))
+        char key_buf[256];
+        char full_key[512];
+        
+        if (klen >= (int)sizeof(key_buf))
             continue;
         
         /* Get the key string (remove quotes if present) */
         if (json[koff] == '"' && klen >= 2)
         {
-            memcpy(key, json + koff + 1, klen - 2);
-            key[klen - 2] = '\0';
+            memcpy(key_buf, json + koff + 1, klen - 2);
+            key_buf[klen - 2] = '\0';
         }
         else
         {
-            memcpy(key, json + koff, klen);
-            key[klen] = '\0';
+            memcpy(key_buf, json + koff, klen);
+            key_buf[klen] = '\0';
         }
         
-        /* Handle different JSON value types */
-        if (vtype == MJSON_TOK_STRING)
+        /* Build full key with prefix if present */
+        if (prefix != NULL && prefix[0] != '\0')
         {
-            /* String value - extract without quotes */
-            char value[1024];
-            char path[512];
-            snprintf(path, sizeof(path), "$.%s", key);
-            
-            if (mjson_get_string(json, json_len, path, value, sizeof(value)) > 0)
-            {
-                tct_add_argument(args, key, "%s", value);
-            }
+            snprintf(full_key, sizeof(full_key), "%s.%s", prefix, key_buf);
         }
-        else if (vtype == MJSON_TOK_NUMBER)
+        else
         {
-            /* Number value */
-            double num;
-            char path[512];
-            snprintf(path, sizeof(path), "$.%s", key);
-            if (mjson_get_number(json, json_len, path, &num) != 0)
-            {
-                /* Check if it's an integer */
-                if (num == (long)num)
-                {
-                    tct_add_argument(args, key, "%ld", (long)num);
-                }
-                else
-                {
-                    tct_add_argument(args, key, "%.2f", num);
-                }
-            }
+            snprintf(full_key, sizeof(full_key), "%s", key_buf);
         }
-        else if (vtype == MJSON_TOK_TRUE || vtype == MJSON_TOK_FALSE)
-        {
-            /* Boolean value */
-            int bval;
-            char path[512];
-            snprintf(path, sizeof(path), "$.%s", key);
-            if (mjson_get_bool(json, json_len, path, &bval) != 0)
-            {
-                tct_add_argument(args, key, "%s", bval ? "true" : "");
-            }
-        }
-        else if (vtype == MJSON_TOK_ARRAY)
-        {
-            /* Array value - iterate through array elements */
-            const char *array_start;
-            int array_len;
-            char path[512];
-            snprintf(path, sizeof(path), "$.%s", key);
-            
-            if (mjson_find(json, json_len, path, &array_start, &array_len) != 0)
-            {
-                int aoff, akoff, aklen, avoff, avlen, avtype;
-                
-                /* Iterate through array elements */
-                for (aoff = 0; (aoff = mjson_next(array_start, array_len, aoff, 
-                                                   &akoff, &aklen, &avoff, &avlen, &avtype)) != 0; )
-                {
-                    if (avtype == MJSON_TOK_STRING)
-                    {
-                        /* Extract string from array (without quotes) */
-                        if (avlen > 2 && array_start[avoff] == '"')
-                        {
-                            char str_val[1024];
-                            int copy_len = avlen - 2;
-                            if (copy_len >= (int)sizeof(str_val))
-                                copy_len = sizeof(str_val) - 1;
-                            memcpy(str_val, array_start + avoff + 1, copy_len);
-                            str_val[copy_len] = '\0';
-                            tct_add_argument(args, key, "%s", str_val);
-                        }
-                    }
-                    else if (avtype == MJSON_TOK_NUMBER)
-                    {
-                        /* Extract number from array */
-                        char num_str[64];
-                        if (avlen < (int)sizeof(num_str))
-                        {
-                            memcpy(num_str, array_start + avoff, avlen);
-                            num_str[avlen] = '\0';
-                            double num = atof(num_str);
-                            
-                            if (num == (long)num)
-                            {
-                                tct_add_argument(args, key, "%ld", (long)num);
-                            }
-                            else
-                            {
-                                tct_add_argument(args, key, "%.2f", num);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        /* Note: Nested objects are not fully supported in this simple implementation */
+        
+        /* Process the value recursively */
+        process_json_value(args, json, json_len, full_key, json + voff, vlen, vtype);
     }
+}
+
+/* Convert JSON object to tct_arguments using mjson */
+static tct_arguments *
+json_to_arguments(const char *json, int json_len)
+{
+    tct_arguments *args = NULL;
+    
+    if (json == NULL || json_len <= 0)
+        return NULL;
+    
+    /* Process the root JSON object */
+    process_json_object(&args, json, json_len, NULL);
     
     return args;
 }
