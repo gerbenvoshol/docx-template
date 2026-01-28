@@ -123,8 +123,8 @@ static void process_json_object(tct_arguments **args, const char *json, int json
 
 /* Process a JSON value and add it to arguments with the given key */
 static void
-process_json_value(tct_arguments **args, const char *json, int json_len,
-                   const char *key, const char *value_start, int vlen, int vtype)
+process_json_value(tct_arguments **args, const char *key, 
+                   const char *value_start, int vlen, int vtype)
 {
     if (vtype == MJSON_TOK_STRING)
     {
@@ -263,7 +263,7 @@ process_json_object(tct_arguments **args, const char *json, int json_len,
         }
         
         /* Process the value recursively */
-        process_json_value(args, json, json_len, full_key, json + voff, vlen, vtype);
+        process_json_value(args, full_key, json + voff, vlen, vtype);
     }
 }
 

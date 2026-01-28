@@ -52,11 +52,17 @@ Salary: {{ salary }}
 
 ### 3. Run the program
 
+The program supports both long and short argument names:
+
 ```bash
+# Using long argument names
 ./docx-template-render \
     --template-file template.docx \
     --json-data-file data.json \
     --generated-file output.docx
+
+# Using short argument names
+./docx-template-render -t template.docx -j data.json -g output.docx
 ```
 
 ### 4. Verify the output
@@ -72,9 +78,36 @@ unzip -p output.docx word/document.xml
 The C program uses libtct template syntax which is compatible with {{ variable }} style placeholders:
 
 - **Variable substitution**: `{{ variable_name }}`
+- **Nested object access**: `{{ object.property }}` or `{{ object.nested.property }}`
 - **Conditional blocks**: `{{#if condition}} ... {{/if}}`
 - **Conditional with else**: `{{#if condition}} ... {{#else}} ... {{/if}}`
 - **Loop blocks**: `{{#each items}} ... {{/each}}`
+
+### Nested Objects in JSON
+
+The program fully supports nested objects using dot notation:
+
+```json
+{
+    "name": "John Doe",
+    "company": {
+        "name": "Acme Corporation",
+        "address": {
+            "street": "123 Main St",
+            "city": "Springfield",
+            "zip": "12345"
+        }
+    }
+}
+```
+
+In your template, access nested properties with dots:
+
+```
+Name: {{ name }}
+Company: {{ company.name }}
+City: {{ company.address.city }}
+```
 
 ### Arrays in JSON
 
@@ -98,10 +131,11 @@ Then in your template:
 
 The C version has the following differences compared to the Python version:
 
-1. **JSON Parsing**: Limited to flat objects and simple arrays. Deeply nested objects may not be fully supported.
+1. **JSON Parsing**: Supports nested objects with dot notation (e.g., `{{ company.name }}`, `{{ address.city }}`). Arrays and complex data structures are fully supported.
 2. **Template Syntax**: Uses libtct syntax ({{ }}) instead of Jinja2 syntax used by python-docx-template.
 3. **Performance**: The C version is significantly faster for large documents.
 4. **Dependencies**: Requires fewer runtime dependencies (no Python interpreter needed).
+5. **Multiple Instances**: The program is designed to be thread-safe and can be run with multiple instances simultaneously without conflicts.
 
 ## Troubleshooting
 

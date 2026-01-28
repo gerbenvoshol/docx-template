@@ -37,9 +37,22 @@ make
 
 ### Usage
 
+The program supports both long and short argument names:
+
 ```bash
+# Long form
 ./docx-template-render --template-file template.docx --json-data-file data.json --generated-file result.docx
+
+# Short form
+./docx-template-render -t template.docx -j data.json -g result.docx
 ```
+
+### Features
+
+- **Nested Object Support**: Access nested JSON properties using dot notation (e.g., `{{ company.name }}`, `{{ address.city }}`)
+- **Multi-Instance Safe**: Can be run with multiple instances simultaneously without conflicts
+- **Short Arguments**: Supports both short (`-t`, `-j`, `-g`) and long (`--template-file`, etc.) argument names
+- **Fast**: Pure C implementation for high performance
 
 ### Docker Usage
 
@@ -54,7 +67,8 @@ Run the container:
 ```bash
 docker run -ti --rm --entrypoint /bin/bash -v path/to/data:/data docx-template-render-c
 cd /data
-docx-template-render --template-file template.docx --json-data-file data.json --generated-file result.docx
+# Using short argument names
+docx-template-render -t template.docx -j data.json -g result.docx
 soffice --convert-to pdf result.docx
 ```
 
