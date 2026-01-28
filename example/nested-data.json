@@ -1,0 +1,17 @@
+{
+    "name": "John Doe",
+    "company": {
+        "name": "Acme Corporation",
+        "address": {
+            "street": "123 Main St",
+            "city": "Springfield",
+            "zip": "12345"
+        }
+    },
+    "position": "Senior Software Engineer",
+    "salary": 95000,
+    "contact": {
+        "email": "john.doe@acme.com",
+        "phone": "555-1234"
+    }
+}
