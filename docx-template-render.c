@@ -32,6 +32,7 @@
 #define PROGRAM_NAME "docx-template-render"
 #define TEMP_DIR "/tmp/docx_template_render"
 #define MAX_PATH 4096
+#define MAX_NESTING_DEPTH 100
 
 /* Structure to hold DOCX document data */
 typedef struct {
@@ -119,12 +120,12 @@ read_file_contents(const char *filename)
 
 /* Forward declaration for recursive call */
 static void process_json_object(tct_arguments **args, const char *json, int json_len, 
-                                 const char *prefix);
+                                 const char *prefix, int depth);
 
 /* Process a JSON value and add it to arguments with the given key */
 static void
 process_json_value(tct_arguments **args, const char *key, 
-                   const char *value_start, int vlen, int vtype)
+                   const char *value_start, int vlen, int vtype, int depth)
 {
     if (vtype == MJSON_TOK_STRING)
     {
@@ -219,14 +220,21 @@ process_json_value(tct_arguments **args, const char *key,
     else if (vtype == MJSON_TOK_OBJECT)
     {
         /* Nested object - recursively process with dotted prefix */
-        process_json_object(args, value_start, vlen, key);
+        /* Check recursion depth to prevent stack overflow */
+        if (depth >= MAX_NESTING_DEPTH)
+        {
+            fprintf(stderr, "Warning: Maximum nesting depth (%d) reached for key '%s', skipping nested object\n", 
+                    MAX_NESTING_DEPTH, key);
+            return;
+        }
+        process_json_object(args, value_start, vlen, key, depth + 1);
     }
 }
 
 /* Recursively process JSON object and add all properties to arguments */
 static void
 process_json_object(tct_arguments **args, const char *json, int json_len, 
-                    const char *prefix)
+                    const char *prefix, int depth)
 {
     int koff, klen, voff, vlen, vtype, off;
     
@@ -255,7 +263,13 @@ process_json_object(tct_arguments **args, const char *json, int json_len,
         /* Build full key with prefix if present */
         if (prefix != NULL && prefix[0] != '\0')
         {
-            snprintf(full_key, sizeof(full_key), "%s.%s", prefix, key_buf);
+            int ret = snprintf(full_key, sizeof(full_key), "%s.%s", prefix, key_buf);
+            /* Check if the key was truncated */
+            if (ret >= (int)sizeof(full_key))
+            {
+                fprintf(stderr, "Warning: Key path too long (truncated): %s.%s\n", prefix, key_buf);
+                continue;
+            }
         }
         else
         {
@@ -263,7 +277,7 @@ process_json_object(tct_arguments **args, const char *json, int json_len,
         }
         
         /* Process the value recursively */
-        process_json_value(args, full_key, json + voff, vlen, vtype);
+        process_json_value(args, full_key, json + voff, vlen, vtype, depth);
     }
 }
 
@@ -277,7 +291,7 @@ json_to_arguments(const char *json, int json_len)
         return NULL;
     
     /* Process the root JSON object */
-    process_json_object(&args, json, json_len, NULL);
+    process_json_object(&args, json, json_len, NULL, 0);
     
     return args;
 }

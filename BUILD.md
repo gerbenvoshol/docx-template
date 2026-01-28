@@ -135,7 +135,7 @@ The C version has the following differences compared to the Python version:
 2. **Template Syntax**: Uses libtct syntax ({{ }}) instead of Jinja2 syntax used by python-docx-template.
 3. **Performance**: The C version is significantly faster for large documents.
 4. **Dependencies**: Requires fewer runtime dependencies (no Python interpreter needed).
-5. **Multiple Instances**: The program is designed to be thread-safe and can be run with multiple instances simultaneously without conflicts.
+5. **Multiple Instances**: The program can be run with multiple separate process instances simultaneously without conflicts (no shared global state).
 
 ## Troubleshooting
 
