@@ -134,6 +134,29 @@ Skills:
 - **Single-File Libraries**: Uses txml, libtct, mjson, and pdfgen as requested
 - **Fast**: Pure C implementation for high performance
 
+### Docker Usage
+
+Build the Docker image:
+
+```bash
+docker build -f Dockerfile.pdf -t pdf-template-render .
+```
+
+Run the container:
+
+```bash
+docker run -ti --rm -v $(pwd)/data:/data pdf-template-render \
+    pdf-template-render -t template.txt -j data.json -g output.pdf
+```
+
+Or run interactively:
+
+```bash
+docker run -ti --rm --entrypoint /bin/bash -v $(pwd)/data:/data pdf-template-render
+cd /data
+pdf-template-render -t template.txt -j data.json -g output.pdf
+```
+
 ## Requirements
 
 ### C DOCX Version Dependencies
