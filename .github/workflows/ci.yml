@@ -22,20 +22,31 @@ jobs:
     - name: Build docx-template-render
       run: |
         make clean
-        make
+        make all
     
-    - name: Verify executable
+    - name: Verify DOCX executable
       run: |
         ./docx-template-render --help
         test -f docx-template-render
         test -x docx-template-render
     
-    - name: Run example test
+    - name: Verify PDF executable
+      run: |
+        ./pdf-template-render --help
+        test -f pdf-template-render
+        test -x pdf-template-render
+    
+    - name: Run DOCX example test
       run: |
         make example
         test -f example/output.docx
     
-    - name: Verify output
+    - name: Run PDF example test
+      run: |
+        make example-pdf
+        test -f example/output.pdf
+    
+    - name: Verify DOCX output
       run: |
         # Install unzip to extract and verify the DOCX output
         sudo apt-get install -y unzip
@@ -45,12 +56,26 @@ jobs:
         grep -q "Acme Corporation" /tmp/output.xml
         grep -q "Senior Software Engineer" /tmp/output.xml
         grep -q "95000" /tmp/output.xml
-        echo "✓ All template variables were correctly replaced"
+        echo "✓ All DOCX template variables were correctly replaced"
+    
+    - name: Verify PDF output
+      run: |
+        # Verify PDF file was created and has correct type
+        file example/output.pdf | grep -q "PDF document"
+        # Check PDF file size is reasonable (>1KB)
+        test $(stat -c%s example/output.pdf) -gt 1000
+        # Check that PDF contains some expected text
+        strings example/output.pdf | grep -q "Employee Information Template"
+        strings example/output.pdf | grep -q "John Doe"
+        strings example/output.pdf | grep -q "Acme Corporation"
+        echo "✓ PDF output verified successfully"
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: docx-template-render
+        name: template-renderers
         path: |
           docx-template-render
+          pdf-template-render
           example/output.docx
+          example/output.pdf
