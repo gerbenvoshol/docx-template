@@ -259,8 +259,8 @@ process_json_object(tct_arguments **args, const char *json, int json_len,
         if (prefix != NULL && prefix[0] != '\0')
         {
             int ret = snprintf(full_key, sizeof(full_key), "%s.%s", prefix, key_buf);
-            /* Check if the key was truncated */
-            if (ret >= (int)sizeof(full_key))
+            /* Check if the key was truncated or encoding error occurred */
+            if (ret < 0 || ret >= (int)sizeof(full_key))
             {
                 fprintf(stderr, "Warning: Key path too long (truncated): %s.%s\n", prefix, key_buf);
                 continue;
