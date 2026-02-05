@@ -1,0 +1,34 @@
+# Dockerfile for pdf-template-render (C version)
+# This builds a minimal container with the PDF template renderer
+
+FROM gcc:12 AS builder
+
+WORKDIR /build
+
+# Copy source files and dependencies
+COPY pdf-template-render.c .
+COPY pdfgen.c pdfgen.h .
+COPY mjson.c mjson.h .
+COPY libtct.c libtct.h .
+COPY Makefile .
+
+# Build the PDF template renderer
+RUN make pdf-template-render
+
+# Create runtime image
+FROM debian:bookworm-slim
+
+# Install minimal runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libc6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the compiled binary
+COPY --from=builder /build/pdf-template-render /usr/local/bin/
+
+# Set working directory
+WORKDIR /data
+
+# Default command
+CMD ["pdf-template-render", "--help"]

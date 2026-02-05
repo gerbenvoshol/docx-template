@@ -1,0 +1,24 @@
+Employee Information Template
+==============================
+
+Name: {{ name }}
+Company: {{ company }}
+Position: {{ position }}
+Salary: ${{ salary }}
+
+Address Information:
+Street: {{ address.street }}
+City: {{ address.city }}
+Zip Code: {{ address.zip }}
+
+Contact Details:
+Email: {{ email }}
+Phone: {{ phone }}
+
+Skills:
+{{#each skills}}
+- {{ skills }}
+{{/each}}
+
+This document was generated from a text template.
+The template supports nested objects and arrays using libtct templating.

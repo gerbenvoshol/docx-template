@@ -104,9 +104,11 @@ ENV/
 *.o
 *.a
 docx-template-render
+pdf-template-render
 
 # CodeQL artifacts
 _codeql_detected_source_root
 
 # Example output
 example/output.docx
+example/output.pdf

@@ -6,9 +6,10 @@ Dockerfiles for building images with LibreOffice and python-docx-template
 
 ## Overview
 
-This repository contains both Python and C implementations of a DOCX template renderer:
-- **Python version**: Uses `python-docx-template` library
-- **C version**: Pure C implementation with all dependencies included
+This repository contains Python and C implementations of document template renderers:
+- **Python version**: Uses `python-docx-template` library for DOCX files
+- **C DOCX version**: Pure C implementation for DOCX templates with all dependencies included
+- **C PDF version**: Pure C implementation for PDF generation from text templates with all dependencies included
 
 ## Python Version
 
@@ -21,9 +22,9 @@ python3 -m docxtpl --template-file template.docx --json-data-file data.json --ge
 soffice --convert-to pdf result.docx
 ```
 
-## C Version
+## C Version - DOCX Renderer
 
-The C version includes all dependencies (no external libraries required):
+The C DOCX version includes all dependencies (no external libraries required):
 - libtct (template rendering, included)
 - mjson (JSON parsing, included)
 - miniz (ZIP/DOCX handling, included)
@@ -32,7 +33,7 @@ The C version includes all dependencies (no external libraries required):
 ### Building
 
 ```bash
-make
+make docx-template-render
 ```
 
 ### Usage
@@ -72,14 +73,82 @@ docx-template-render -t template.docx -j data.json -g result.docx
 soffice --convert-to pdf result.docx
 ```
 
+## C Version - PDF Renderer
+
+The C PDF version generates PDF documents from plain text templates. It includes all dependencies as single-file libraries:
+- libtct (template rendering, included)
+- mjson (JSON parsing, included)
+- pdfgen (PDF generation, single-file library)
+
+### Building
+
+```bash
+make pdf-template-render
+```
+
+Or build both C versions:
+
+```bash
+make all
+```
+
+### Usage
+
+The PDF renderer takes a plain text template file (not a binary PDF) with `{{ }}` placeholders:
+
+```bash
+# Long form
+./pdf-template-render --template-file template.txt --json-data-file data.json --generated-file output.pdf
+
+# Short form
+./pdf-template-render -t template.txt -j data.json -g output.pdf
+```
+
+### Example Text Template (template.txt)
+
+```
+Employee Information
+====================
+
+Name: {{ name }}
+Company: {{ company }}
+Position: {{ position }}
+Salary: ${{ salary }}
+
+Address:
+{{ address.street }}
+{{ address.city }}, {{ address.zip }}
+
+Skills:
+{{#each skills}}
+- {{ skills }}
+{{/each}}
+```
+
+### Features
+
+- **Plain Text Templates**: Uses simple text files as templates (easy to create and edit)
+- **PDF Generation**: Generates PDF files directly using the pdfgen single-file library
+- **Nested Object Support**: Access nested JSON properties using dot notation
+- **Array Support**: Iterate through arrays with `{{#each}}` blocks
+- **Single-File Libraries**: Uses txml, libtct, mjson, and pdfgen as requested
+- **Fast**: Pure C implementation for high performance
+
 ## Requirements
 
-### C Version Dependencies
+### C DOCX Version Dependencies
 
 All dependencies are included in the repository:
 - **libtct**: Template rendering library (from https://github.com/gerbenvoshol/libtct)
 - **mjson**: JSON parsing library (from https://github.com/gerbenvoshol/mjson)
-- **miniz**: ZIP file handling for DOCX files
-- **txml.h**: XML parsing utilities
+- **miniz**: ZIP file handling for DOCX files (single-file library)
+- **txml.h**: XML parsing utilities (single-file library)
 
-No external installation required - just run `make` to build!
+### C PDF Version Dependencies
+
+All dependencies are included in the repository as single-file libraries:
+- **libtct**: Template rendering library (from https://github.com/gerbenvoshol/libtct)
+- **mjson**: JSON parsing library (from https://github.com/gerbenvoshol/mjson)
+- **pdfgen**: PDF generation library (single-file library from https://github.com/AndreRenaud/PDFGen)
+
+No external installation required - just run `make all` to build both C versions!

@@ -6,6 +6,13 @@
     "start_date": "2024-01-15",
     "department": "Engineering",
     "manager": "Jane Smith",
+    "email": "john.doe@acme.com",
+    "phone": "+1-555-1234",
+    "address": {
+        "street": "123 Main Street",
+        "city": "Springfield",
+        "zip": "12345"
+    },
     "skills": ["C", "Python", "JavaScript", "Docker"],
     "remote": "true"
 }
