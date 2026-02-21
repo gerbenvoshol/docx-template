@@ -1,4 +1,4 @@
-# python-docx-template-dockerfiles
+# docx-template-dockerfiles
 
 [![CI](https://github.com/gerbenvoshol/python-docx-template-dockerfiles/actions/workflows/ci.yml/badge.svg)](https://github.com/gerbenvoshol/python-docx-template-dockerfiles/actions/workflows/ci.yml)
 
